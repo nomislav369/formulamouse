@@ -68,7 +68,6 @@ function updateTimer() {
 	msstr = msstr.slice(msstr.length-2,msstr.length);
 	ctx.font = "bold 50px Courier New";
 	ctx.fillStyle = "black";
-	if (zoom!=1){ctx.fillStyle = "grey";}
 	ctx.clearRect(0, 15, 170, 50);
 	ctx.fillText(sstr + ":" + msstr, 20, 50);
 }
@@ -194,7 +193,7 @@ function drawTrack(x, y, zoom){
 	}
 	
 	if (zoom != 1){
-		ctx.drawImage(cursor, Math.floor(canvas.width/2)-30, Math.floor(canvas.height/2), 30, 40);
+		ctx.drawImage(cursor, Math.floor(canvas.width/2)-30, Math.floor(canvas.height/2)-20, 30, 40);
 	}
 	return;
 }
