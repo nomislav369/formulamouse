@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html>
+<style>
+body {
+  background-image: url("monaco.jpeg");
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  background-size: cover;
+  background-position: 0px 0px;
+  cursor: default;
+}
+</style>
+<body>
+
+<h1>
+
+
+<canvas id="myCanvas" onmousemove="follow(event)" onmouseenter="entrance(event)" width="800" height="400"></canvas>
+<img id="mouse" width="0" height="0" src="cursor.png">
+
+<script>
+
+setInterval(updateTimer, 10);
+
+const canvas = document.getElementById("myCanvas");
+let body = document.getElementsByTagName("body")[0];
+const ctx = canvas.getContext("2d");
+const cursor = document.getElementById("mouse");
+
+let zoom = 1;
+let prevX = 0;
+let direction = 0;
+let t0 = 0;
+let t1 = 0;
+
+const smooth = circuit(N=200, dis=1.5);
+const strtpt = square(smooth[0]).indexOf(Math.min.apply(null, square(smooth[0]))); // find point closest to middle to set finish line
+
+
+
+
+
+
+drawTrack(0, 0, zoom);
+body.onresize = function(){drawTrack(0, 0, zoom)};
+window.addEventListener('keydown', function (e) {toggleZoom(e);})
+
+
+// function territory begins here
+
+function updateTimer() {
+	let s = 0;
+	let ms = 0;
+	switch(Math.abs(direction)){
+		case 0:
+			s = Math.floor((t1-t0)/1000).toString();
+			ms = Math.floor(((t1-t0)%1000)/10).toString();
+			break;
+		case 1:
+			const t = new Date().getTime();
+			s = Math.floor((t-t0)/1000).toString();
+			ms = Math.floor(((t-t0)%1000)).toString();
+			break;
+	}
+	let sstr = "0"+s;
+	sstr = sstr.slice(sstr.length-2,sstr.length);
+	let msstr = "0"+ms;
+	msstr = msstr.slice(msstr.length-2,msstr.length);
+	ctx.font = "bold 50px Courier New";
+	ctx.fillStyle = "black";
+	ctx.clearRect(0, 15, 170, 50);
+	ctx.fillText(sstr + ":" + msstr, 20, 50);
+}
+
+function toggleZoom(e){
+	const key = e.key;
+	if (key == "z" || key == "Z"){
+		zoom = (zoom + 2) % 4;
+		drawTrack(x, y, zoom);
+	}
+}
+
+function entrance(e){
+	prevX = e.clientX;
+}
+
+function follow(e){
+	x = e.clientX;
+	y = e.clientY;
+	drawTrack(x, y, zoom);
+}
+
+function drawTrack(x, y, zoom){
+
+	canvas.width = window.innerWidth;
+	canvas.height = window.innerHeight;
+
+	updateTimer();
+	
+	const L = smooth[0].length;
+	const p = [[], []];
+	
+	// draw points according to zoom and mouse position
+	if (zoom == 1){
+		for(let i=0; i<L-1; i++){
+			p[0].push(Math.floor(canvas.width/2) + Math.floor(smooth[0][i]*0.8*canvas.width/2));
+			p[1].push(Math.floor(canvas.height/2) + Math.floor(smooth[1][i]*0.8*canvas.height/2));
+			body.style.backgroundSize = "cover";
+			body.style.backgroundPosition = "0px 0px";
+			body.style.cursor = "default";
+		}
+	} else {
+		for(let i=0; i<L-1; i++){
+			p[0].push(Math.floor(canvas.width/2) + zoom*(Math.floor(smooth[0][i]*0.8*canvas.width/2) - x + Math.floor(canvas.width/2)));
+			p[1].push(Math.floor(canvas.height/2) + zoom*(Math.floor(smooth[1][i]*0.8*canvas.height/2) - y + Math.floor(canvas.height/2)));
+			body.style.backgroundSize = "300% 300%";
+			const xParalax = -(zoom-1)*x;
+			const yParalax = -(zoom-1)*y;
+			body.style.backgroundPosition = xParalax.toString() + "px " + yParalax.toString() + "px";
+			body.style.cursor = "none";
+		}
+	}
+	
+	//mechanism for determining how finish line is crossed
+	
+	const x0 = Math.floor(canvas.width/2) + Math.floor(smooth[0][strtpt]*0.8*canvas.width/2);
+	const y0 = Math.floor(canvas.height/2) + Math.floor(smooth[1][strtpt]*0.8*canvas.height/2);
+
+	if ( ((prevX-x0)*(x-x0) < 0) && (y <= (y0+55)) && (y >= (y0-55)) ){
+		switch (Math.abs(direction - Math.sign(x-prevX))){
+			case 0:
+				console.log("you completed a lap");
+				direction = 0;
+				t1 = new Date().getTime();
+				break;
+			case 1:
+				console.log("you started a lap");
+				direction = Math.sign(x-prevX);
+				t0 = new Date().getTime();
+				break;
+			case 2:
+				console.log("you reset the clock");
+				direction = 0;
+				t1 = t0;
+				break;
+			default:
+				console.log("something went wrong");
+				direction = 0;
+
+		}
+	}
+	
+	if ( (prevX-x0)*(x-x0) != 0){
+		prevX = x;
+	}
+	
+
+	for(let i=0; i<L; i++){
+		ctx.beginPath();
+		ctx.arc(p[0][i], p[1][i], zoom*25, 0, 2*Math.PI);
+		ctx.fillStyle = "black";
+		ctx.fill();
+	}
+
+
+	for(let i=0; i<L; i++){
+		ctx.beginPath();
+		ctx.arc(p[0][i], p[1][i], zoom*20, 0, 2*Math.PI);
+		ctx.fillStyle = "lightgrey";
+		ctx.fill();
+	}
+
+	
+	for(let i=0; i<L; i+=50){
+		ctx.beginPath();
+		ctx.moveTo(p[0][i], p[1][i]);
+		ctx.lineTo(p[0][i+25], p[1][i+25]);
+		ctx.lineWidth = zoom*3;
+		ctx.strokeStyle = "white";
+		ctx.stroke();
+	}
+
+	for (let i=0; i<3; i++){ //drawing the finish line
+		for (let k=0; k<11; k++){
+			const color = 255*((i+k)%2);
+			ctx.beginPath();
+			ctx.moveTo(p[0][strtpt]+10*i*zoom, p[1][strtpt]-55*zoom+10*k*zoom);
+			ctx.lineTo(p[0][strtpt]+10*i*zoom, p[1][strtpt]-55*zoom+(10*k+10)*zoom);
+			ctx.lineWidth = zoom*10;
+			ctx.strokeStyle = "rgb(" + color.toString() + " " + color.toString() + " " + color.toString() +")";
+			ctx.stroke();
+		}
+	}
+	
+	if (zoom != 1){
+		ctx.drawImage(cursor, Math.floor(canvas.width/2)-30, Math.floor(canvas.height/2)+45, 30, 40);
+	}
+	return;
+}
+
+function leftTurn(v, w){
+	v[1]=-v[1];
+	v.reverse();
+
+	dot=v.reduce((l,r,i)=>l+r*w[i],0);
+
+	if (dot>=0){
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
+function square(arr) {
+    ret= [];
+    for (var i = 0, len = arr.length; i < len; i++) {
+        ret.push(arr[i] * arr[i]);
+    }
+    return ret;     
+}
+
+function avg(v){
+	return v.reduce((l,r)=>l+r,0)/v.length;
+}
+
+function pt(t, pm1, p0, p1, pp1){
+	const m0 = (p1 - pm1)/2;
+	const m1 = (pp1 - p0)/2;
+	return (2*p0 + m0 - 2*p1 + m1)*t**3 + (- 3*p0 + 3*p1 - 2*m0 - m1)*t**2 + m0*t + p0;
+}
+
+function circuit(N, dis){
+	// sample random points
+
+	const sam = [[], []];
+	
+	for(let i=0; i<N; i++){
+		sam[0].push(Math.random());
+		sam[1].push(Math.random());
+	}
+
+	// this is Graham Scan algorithm for finding convex hull of a set of points
+
+	i0 = sam[1].indexOf(Math.min.apply(null, sam[1]));
+	const x0 = sam[0][i0], y0 = sam[1][i0], dist = [], ang = [];
+
+	for(let i=0; i<N; i++){
+		sam[0][i]-=x0;
+		sam[1][i]-=y0;
+		dist.push(Math.sqrt((sam[0][i])**2+(sam[1][i])**2));
+		ang.push(Math.acos((sam[0][i])/dist[i]));
+	}
+
+	const sortedAng = ang.slice(), sortedSam = [[x0], [y0]];
+	sortedAng.sort();
+	
+	for(let i=0; i<N; i++){
+		let k=ang.indexOf(sortedAng[i]);
+		sortedSam[0][i+1] = dist[k]*Math.cos(sortedAng[i])+x0;
+		sortedSam[1][i+1] = dist[k]*Math.sin(sortedAng[i])+y0;
+	}
+	sortedSam[0].pop();
+	sortedSam[1].pop();
+
+	const hull=[[x0, sortedSam[0][1]],[y0, sortedSam[1][1]]];
+
+	for(let i=2; i<N; i++){
+		const a=[hull[0][hull[0].length-1]-hull[0][hull[0].length-2],hull[1][hull[1].length-1]-hull[1][hull[1].length-2]];
+		const b=[sortedSam[0][i]-hull[0][hull[0].length-1],sortedSam[1][i]-hull[1][hull[1].length-1]];
+		const left = leftTurn(a,b);
+		if (left){
+			hull[0].push(sortedSam[0][i]);
+			hull[1].push(sortedSam[1][i]);
+		}else{
+			hull[0].pop();
+			hull[1].pop();
+			i -=1;
+		}
+	}
+
+
+	let L=hull[0].length;
+
+	// remove points that are too close together
+	
+	for (i=0; i<L; i++){
+		const d = Math.sqrt((hull[0][i%L]-hull[0][(i+1)%L])**2+(hull[1][i%L]-hull[1][(i+1)%L])**2);
+		if (d<=0.3){
+			hull[0].splice(i+1, 1);
+			hull[1].splice(i+1, 1);
+			i-=1;
+			L-=1;
+		}
+	}
+	
+	// now we add deviations to each mid point to get some interesting turns
+
+	const extras=[[],[]];
+
+	for (let i=0; i<L-1; i++){
+		const dev=(2*Math.random()-1)*dis;
+		const perp = [[-(hull[1][i]-hull[1][i+1])/2],[(hull[0][i]-hull[0][i+1])/2]];
+		extras[0].push(dev*perp[0]+(hull[0][i]+hull[0][i+1])/2);
+		extras[1].push(dev*perp[1]+(hull[1][i]+hull[1][i+1])/2);
+	}
+
+	// combine all points into one line
+
+	const path = [[],[]];
+	for (let i=0; i<L-1; i++){
+		path[0].push(hull[0][i]);
+		path[0].push(extras[0][i]);
+		path[1].push(hull[1][i]);
+		path[1].push(extras[1][i]);
+	}
+
+	// remove basic loops
+
+	L = path[0].length;
+	let cons = 0;
+
+	for (let i=0; i<L-3; i++){
+		a = [path[0][i+1]-path[0][i], path[1][i+1]-path[1][i]];
+		b = [path[0][i+2]-path[0][i+1], path[1][i+2]-path[1][i+1]];
+		const right = !leftTurn(a,b);
+		if (right){
+			cons +=1;
+			if (cons >=2){
+				path[0].splice(i+2,1);
+				path[1].splice(i+2,1);
+				i-=1;
+				L-=1;
+			}	
+		}else{
+			cons = 0;
+		}
+	}
+
+	// remove corners that are too tight
+
+	for (let i=0; i<L-2; i++){
+		const v=[path[0][i+1]-path[0][i], path[1][i+1]-path[1][i]], rv = Math.sqrt(v[0]**2+v[1]**2);
+		const w=[path[0][i+2]-path[0][i+1], path[1][i+2]-path[1][i+1]], rw = Math.sqrt(w[0]**2+w[1]**2);
+		if (Math.abs(v.reduce((l,r,i)=>l+r*w[i],0)/rv/rw) > 0.9){
+			path[0].splice(i+1,1);
+			path[1].splice(i+1,1);
+			i-=1;
+			L-=1;
+		}
+	}
+	
+	
+	// center points around middle for later scaling
+
+	const centerX = avg(path[0]);
+	const centerY = avg(path[1]);
+	
+	for (let i=0; i<L; i++){
+		path[0][i]-=centerX;
+		path[1][i]-=centerY;
+	}
+
+
+
+	// normalizing
+
+	normX = Math.max(-Math.min.apply(null, path[0]), Math.max.apply(null, path[0]));
+	normY = Math.max(-Math.min.apply(null, path[1]), Math.max.apply(null, path[1]));
+
+	for (let i=0; i<L; i++){
+		path[0][i] /= normX;
+		path[1][i] /= normY;
+	}
+
+
+	// make smooth path using Catmull-Rom spline
+
+	const smooth = [[],[]];
+
+	for (let i=1; i<L+1; i++){
+		const d = Math.sqrt((path[0][i%L]-path[0][(i+1)%L])**2+(path[1][i%L]-path[1][(i+1)%L])**2);
+		const S = Math.floor(d/0.002);
+		for(let k=0; k<S; k++){
+			smooth[0].push(pt(k/S, path[0][(i-1)%L], path[0][i%L], path[0][(i+1)%L], path[0][(i+2)%L]));
+			smooth[1].push(pt(k/S, path[1][(i-1)%L], path[1][i%L], path[1][(i+1)%L], path[1][(i+2)%L]));
+		}
+	}
+	return smooth;
+}
+</script>
+</body>
+</html>
