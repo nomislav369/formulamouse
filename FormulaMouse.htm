@@ -12,23 +12,23 @@ body {
 </style>
 <body>
 
-<h1>
-
-
-<canvas id="myCanvas" onmousemove="follow(event)" onmouseenter="entrance(event)" width="800" height="400"></canvas>
+<div style="position: relative;">
+<canvas id="myCanvas" onmousemove="follow(event)" onmouseenter="entrance(event)" width="800" height="400" style="position: absolute; left: 0; top: 0; z-index: 0;"></canvas>
+<canvas id="myTimer" width="180" height="60" style="position: absolute; left: 0; top: 0; z-index: 1;"></canvas>
 <img id="mouse" width="0" height="0" src="cursor.png">
-
+</div>
 <script>
 
-setInterval(updateTimer, 10);
-
 const canvas = document.getElementById("myCanvas");
+const clock = document.getElementById("myTimer");
 let body = document.getElementsByTagName("body")[0];
 const ctx = canvas.getContext("2d");
+const ctxtime = clock.getContext("2d");
 const cursor = document.getElementById("mouse");
 
 let zoom = 1;
 let prevX = 0;
+let prevY = 0;
 let direction = 0;
 let t0 = 0;
 let t1 = 0;
@@ -36,17 +36,32 @@ let t1 = 0;
 const smooth = circuit(N=200, dis=1.5);
 const strtpt = square(smooth[0]).indexOf(Math.min.apply(null, square(smooth[0]))); // find point closest to middle to set finish line
 
-
-
-
-
-
-drawTrack(0, 0, zoom);
-body.onresize = function(){drawTrack(0, 0, zoom)};
-window.addEventListener('keydown', function (e) {toggleZoom(e);})
+drawTrack(0,0,1);
+body.onresize = function(){drawTrack(prevX, prevY, zoom)};
+setInterval(updateTimer, 10);
+window.addEventListener('keydown', function (e) {toggleZoom(e);});
 
 
 // function territory begins here
+
+function entrance(e){
+	prevX = e.clientX;
+	prevY = e.clientY;
+}
+
+function follow(e){
+	x = e.clientX;
+	y = e.clientY;
+	drawTrack(x, y, zoom);
+}
+
+function toggleZoom(e){
+	const key = e.key;
+	if (key == "z" || key == "Z"){
+		zoom = (zoom + 2) % 4;
+		drawTrack(x, y, zoom);
+	}
+}
 
 function updateTimer() {
 	let s = 0;
@@ -66,31 +81,12 @@ function updateTimer() {
 	sstr = sstr.slice(sstr.length-2,sstr.length);
 	let msstr = "0"+ms;
 	msstr = msstr.slice(msstr.length-2,msstr.length);
-	ctx.font = "bold 50px Courier New";
-	ctx.fillStyle = "black";
-	ctx.clearRect(0, 15, 170, 50);
-	ctx.fillText(sstr + ":" + msstr, 20, 50);
-	/*ctx.font = "bold 50px Courier New";
-	ctx.strokeStyle = "white";
-	ctx.strokeText(sstr + ":" + msstr, 20, 50);*/
-}
-
-function toggleZoom(e){
-	const key = e.key;
-	if (key == "z" || key == "Z"){
-		zoom = (zoom + 2) % 4;
-		drawTrack(x, y, zoom);
-	}
-}
-
-function entrance(e){
-	prevX = e.clientX;
-}
-
-function follow(e){
-	x = e.clientX;
-	y = e.clientY;
-	drawTrack(x, y, zoom);
+	ctxtime.font = "bold 50px Courier New";
+	ctxtime.fillStyle = "black";
+	ctxtime.strokeStyle = "white";
+	ctxtime.clearRect(0, 0, 180, 60);
+	ctxtime.fillText(sstr + ":" + msstr, 20, 50);
+	ctxtime.strokeText(sstr + ":" + msstr, 20, 50);
 }
 
 function drawTrack(x, y, zoom){
@@ -156,8 +152,9 @@ function drawTrack(x, y, zoom){
 	if ( (prevX-x0)*(x-x0) != 0){
 		prevX = x;
 	}
+	prevY = y;
 	
-
+	// start drawing track
 	for(let i=0; i<L; i++){
 		ctx.beginPath();
 		ctx.arc(p[0][i], p[1][i], zoom*25, 0, 2*Math.PI);
@@ -183,7 +180,8 @@ function drawTrack(x, y, zoom){
 		ctx.stroke();
 	}
 
-	for (let i=0; i<3; i++){ //drawing the finish line
+	//drawing the finish line
+	for (let i=0; i<3; i++){ 
 		for (let k=0; k<11; k++){
 			const color = 255*((i+k)%2);
 			ctx.beginPath();
@@ -198,6 +196,7 @@ function drawTrack(x, y, zoom){
 	if (zoom != 1){
 		ctx.drawImage(cursor, Math.floor(canvas.width/2)-30, Math.floor(canvas.height/2)-40, 30, 40);
 	}
+	
 	return;
 }
 
@@ -226,7 +225,7 @@ function avg(v){
 	return v.reduce((l,r)=>l+r,0)/v.length;
 }
 
-function pt(t, pm1, p0, p1, pp1){
+function pt(t, pm1, p0, p1, pp1){ //this one is for the interpolation spline
 	const m0 = (p1 - pm1)/2;
 	const m1 = (pp1 - p0)/2;
 	return (2*p0 + m0 - 2*p1 + m1)*t**3 + (- 3*p0 + 3*p1 - 2*m0 - m1)*t**2 + m0*t + p0;
@@ -339,7 +338,7 @@ function circuit(N, dis){
 		}
 	}
 
-	// remove corners that are too tight
+	// remove corners that are too tight (don't know if this one actually works)
 
 	for (let i=0; i<L-2; i++){
 		const v=[path[0][i+1]-path[0][i], path[1][i+1]-path[1][i]], rv = Math.sqrt(v[0]**2+v[1]**2);
@@ -365,7 +364,7 @@ function circuit(N, dis){
 
 
 
-	// normalizing
+	// normalization
 
 	normX = Math.max(-Math.min.apply(null, path[0]), Math.max.apply(null, path[0]));
 	normY = Math.max(-Math.min.apply(null, path[1]), Math.max.apply(null, path[1]));
